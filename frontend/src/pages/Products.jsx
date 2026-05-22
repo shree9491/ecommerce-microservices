@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { ShoppingCart, Search, Package } from 'lucide-react'
 import { productAPI } from '../services/api'
+import api from '../services/api'
+import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +11,8 @@ export default function Products() {
   const [products, setProducts] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [recommendations, setRecommendations] = useState([])
+  const [selectedProduct, setSelectedProduct] = useState(null)
   const { addToCart } = useCart()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -23,6 +27,18 @@ export default function Products() {
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   )
+
+  const fetchRecommendations = async (productId) => {
+    try {
+        const productIndex = products.findIndex(p => p.id === productId) + 1
+        const res = await fetch(`http://localhost:8086/recommend/${productIndex}`)
+        const data = await res.json()
+        setRecommendations(data.recommendations || [])
+        setSelectedProduct(productId)
+    } catch (err) {
+        console.error('Failed to fetch recommendations', err)
+    }
+}
 
   const handleAddToCart = (product) => {
     if (!user) { navigate('/login'); return }
@@ -82,9 +98,15 @@ export default function Products() {
                   </span>
                 </div>
                 <button
+                  onClick={() => fetchRecommendations(product.id)}
+                  className="mt-3 w-full border border-indigo-200 text-indigo-600 py-2 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors"
+                >
+                  🤖 Get Recommendations
+                </button>
+                <button
                   onClick={() => handleAddToCart(product)}
                   disabled={product.stockQuantity === 0}
-                  className="mt-3 w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="mt-2 w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ShoppingCart size={16}/>
                   {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
@@ -92,6 +114,42 @@ export default function Products() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {recommendations.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            🤖 AI Recommendations
+          </h2>
+          <p className="text-sm text-gray-400 mb-6">
+            Based on your selected product
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recommendations.map(rec => (
+              <div key={rec.id} className="bg-white border border-indigo-100 rounded-xl p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-1 rounded-full">
+                    {rec.category}
+                  </span>
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                    {Math.round(rec.similarity_score * 100)}% match
+                  </span>
+                </div>
+                <h3 className="font-semibold text-gray-900 mt-2">{rec.name}</h3>
+                <p className="text-lg font-bold text-indigo-600 mt-1">
+                  ₹{Number(rec.price).toLocaleString()}
+                </p>
+                <button
+                  onClick={() => handleAddToCart({ ...rec, stockQuantity: 1 })}
+                  className="mt-3 w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ShoppingCart size={16}/>
+                  Add to Cart
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

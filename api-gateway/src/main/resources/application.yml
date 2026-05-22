@@ -34,6 +34,12 @@ spring:
           uri: http://localhost:8082
           predicates:
             - Path=/api/products/admin/**
+        - id: recommendation-service
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/recommendations/**
+          filters:
+            - StripPrefix=1
 
 eureka:
   client:
